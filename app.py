@@ -3,8 +3,14 @@ import uuid
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, send_file
 from werkzeug.utils import secure_filename
-from PIL import Image
 import json
+
+# Try to import PIL, but don't fail if it's not available
+try:
+    from PIL import Image
+    PILLOW_AVAILABLE = True
+except ImportError:
+    PILLOW_AVAILABLE = False
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
@@ -81,12 +87,28 @@ def upload_image():
         return redirect(url_for('index'))
     
     if file and allowed_file(file.filename):
-        # Generate unique filename while preserving extension
-        ext = file.filename.rsplit('.', 1)[1].lower()
-        filename = f"{uuid.uuid4()}.{ext}"
-        filepath = os.path.join(app.config['IMAGE_FOLDER'], filename)
-        file.save(filepath)
-        flash('Image uploaded successfully!', 'success')
+        try:
+            # Generate unique filename while preserving extension
+            ext = file.filename.rsplit('.', 1)[1].lower()
+            filename = f"{uuid.uuid4()}.{ext}"
+            filepath = os.path.join(app.config['IMAGE_FOLDER'], filename)
+            
+            # Save the file
+            file.save(filepath)
+            
+            # If Pillow is available, try to verify the image
+            if PILLOW_AVAILABLE:
+                try:
+                    with Image.open(filepath) as img:
+                        img.verify()
+                except Exception as e:
+                    os.remove(filepath)
+                    flash('Invalid image file', 'error')
+                    return redirect(url_for('index'))
+            
+            flash('Image uploaded successfully!', 'success')
+        except Exception as e:
+            flash(f'Error uploading image: {str(e)}', 'error')
     else:
         flash('Invalid file type', 'error')
     
