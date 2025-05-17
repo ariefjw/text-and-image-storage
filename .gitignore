@@ -6,6 +6,4 @@ env/
 venv/
 ENV/
 tmp/
-uploads/
-texts/
 .vercel 
